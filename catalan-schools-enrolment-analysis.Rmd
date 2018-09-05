@@ -1,0 +1,411 @@
+---
+title: "Catalan schools: Importing, wrangling and analysing data"
+output: html_notebook
+---
+
+## Import data
+
+#### Directory
+
+Directory of teaching centers with generic informatin and locations, downloaded from the Government of Catalonia open data portal: https://analisi.transparenciacatalunya.cat/en/Educaci-/Directori-de-centres-docents/e2ef-eiqj
+
+```{r}
+centresdirectori <- read.csv("Dades_obertes_Catalunya/Directori_de_centres_docents.csv", fileEncoding = "UTF8", colClasses = "character")
+```
+
+Clean white spaces in EINF2C column. This is the code for the compulsary stage of pre-schools (educació infantil de segon cicle).
+
+```{r}
+library(stringr)
+centresdirectori$EINF2C <- gsub('\\s+', '', centresdirectori$EINF2C)
+```
+
+```{r}
+#Filtering data for the schools that teached EINF2C in the last avaliable year
+library(dplyr)
+centresdirEINF2C1718 <- filter(centresdirectori, EINF2C == "EINF2C")
+centresdirEINF2C1718 <- filter(centresdirEINF2C1718, Any == 2017)
+
+#Select columns
+centresdirEINF2C1718 <- select(centresdirEINF2C1718, -Telèfon, -FAX, -E.mail.centre)
+centresdirEINF2C1718 <- select(centresdirEINF2C1718, 1:26)
+```
+
+#### Ownership
+
+Ownership of schools, in relation also with who they receive funding from. Three caregories: public, charter and private. Downloaded from the schools map of Catalonia: http://mapaescolar.gencat.cat
+
+```{r}
+library(readxl)
+centresnatu <- read_excel("Mapa_escolar/RelacioCentres1718.xls")
+
+#Select and rename columns
+centresnatu <- select(centresnatu, c(1,2,10,11))
+colnames(centresnatu) <- c("Codi.centre", "Nom", "Codi.natu", "Nom.natu")
+```
+
+#### Demand
+
+Number of Zone applications per school, the first year of copulsary schooling.
+Data received using the Transparency Law as a PDF and transformed with Tabula. 
+
+```{r}
+demandaEINF2C1718 <- read.csv("Peticio_transparencia/Annex-3_Apart-J-_Demanda_rebuda_Infantil_durant_el_proces-CLEAN.csv", encoding = "UTF-8", colClasses = "character")
+
+#The dataset was imported as characters so IDs stayed the same. But we want applications as numbers
+demandaEINF2C1718$Solicituds <- as.numeric(demandaEINF2C1718$Solicituds)
+```
+
+#### Enrolment
+
+Initial supply of school vacants and final enrolment. Data downloaded from the Education Department website: http://ensenyament.gencat.cat/ca/departament/estadistiques/estadistiques-ensenyament/curs-actual/
+
+```{r}
+library(readxl)
+assignacions1718 <- read_excel("Estadistiques_Ensenyament/Assignacions-preinscripcio-obligatoris-17-18.xlsx", skip = 2)
+
+#Select and rename columns
+assignacions1718 <- dplyr::select(assignacions1718, c(1, 2, 3, 4, 7,8,9,10,11,12,13,14))
+colnames(assignacions1718) <- c("Codi.centre", "Nom.centre", "Municipi", "Districte", "Ensenyament", "Nivell", "Grups.inicial", "Mixt", "Places.inicial", "Assignacions", "Assignacions.primera", "Assignacions.altres")
+
+#Filter data for EINF2C
+assignacionsEINF2C1718 <- dplyr::filter(assignacions1718, Ensenyament == "Educació infantil: Parvulari" & Nivell == 1)
+```
+
+#### Maximum complexity
+
+Centres classified as "maximum complexity". Extracted from an official document with Tabula: https://www.csif.es/sites/default/files/field/legado/164637/centres_especial_dificultat_pdf_22364.pdf
+
+```{r}
+maxcomplexitat <- read.csv("centres-maxima-complexitat.csv", fileEncoding = "UTF8", colClasses = "character")
+#Rename columns and values
+colnames(maxcomplexitat) <- c("Codi.centre", "Nom.centre", "Municipi")
+maxcomplexitat <- mutate(maxcomplexitat, Complexitat.max = "Sí")
+```
+
+#### Enrolment after period
+
+Number of students that enroled to P3 after the beggining of the course. Data received using the Transparency Law as a PDF and transformed with Tabula.
+
+```{r}
+foramatINF <- read.csv2("Peticio_transparencia/tabula-Annex 2_Apart-I_Alumnes Infantil_escolaritzats_fora_periode_D-CLEAN.csv", encoding = "UTF-8")
+colnames(foramatINF) <- c("Nom.centre", "Codi.centre", "Nom.municipi", "Naturalesa", "Codi.ensenyament", "Nom.ensenyament", "Nivell", "Admissions.INF")
+```
+
+```{r}
+#correct IDs
+foramatINF$Codi.centre <- ifelse(nchar(as.character(foramatINF$Codi.centre))==7, paste("0", foramatINF$Codi.centre, sep=""), paste(foramatINF$Codi.centre))
+```
+
+#### Innovative schools
+
+Schools part of an innovative movement. Scraped from the promoter website: https://www.escolanova21.cat/centres/#xarxes (In the end, I didn't use this data for this analysis)
+
+```{r}
+en21 <- read.csv("Innovacio/Projecte-EscolaNova21-scraped.csv", encoding = "UTF-8")
+
+#Select and rename columns
+en21 <- dplyr::select(en21, c(1,2,4))
+colnames(en21) <- c("Municipi", "Nom.centre", "Innovador")
+
+#As there are not IDs, clean names to match other datasets
+library(dplyr)
+en21$Nom.centre <- gsub('Escola ', '', en21$Nom.centre)
+en21$Nom.centre <- gsub('Col·legi ', '', en21$Nom.centre)
+en21$Nom.centre <- gsub('Institut ', '', en21$Nom.centre)
+```
+
+#### Zonification
+
+Division of schooling areas in Lleida. They are named with colours as the zones don't match specific districts. There are no official shapefiles with limits, just a map on a pdf: http://ensenyament.gencat.cat/web/.content/home/serveis_territorials/lleida/alumnes_i_families/zonificacio-adscripcions-lleida-ciutat/LLE-mapes-zonificacio-primaria.pdf
+
+I need them to make my interactive map.
+
+I will approximate the limits of various electoral wards (the smaller area division in Spain) to fit the different schooling zones. 
+
+Electoral wards of Lleida: I downloaded the shapefiles from the cartographic institute of Catalonia: http://www.icgc.cat/Administracio-i-empresa/Descarregues/Capes-de-geoinformacio/Seccions-censals
+Then I filtered it with Mapshaper and Carto and exported to a csv that I import here now:
+
+```{r}
+sclleida <- read.csv("Seccions_censals_Lleida/Lleida2-seccions_censals.csv")
+```
+
+Manually I classify the wards to the schooling zones
+```{r}
+lleidasc <- select(sclleida, districte, seccio, mundissec)
+lleidasc$mundissec <- as.character(lleidasc$mundissec)
+lleidasc$areainfluencia <- ifelse(lleidasc$mundissec %in% c("25120709001", "25120708002"), "lila", ifelse(lleidasc$mundissec %in% c("25120701010", "25120701005"), "lilaSeca",
+ifelse(lleidasc$mundissec %in% c("25120706007", "25120706014", "25120706009", "25120709002", "25120706017", "25120706006"), "rosa",
+ifelse(lleidasc$mundissec %in% c("25120704011", "25120704005", "25120704006", "25120704007", "25120704017", "25120704010", "25120705006", "25120705011", "25120705012", "25120705008", "25120706011", "25120706016", "25120706003", "25120706010", "25120706012", "25120706004", "25120706013", "25120706005", "25120705007", "25120705003", "25120704005", "25120704004", "25120704008", "25120705004", "25120705005", "25120705010", "25120705009"), "taronja",
+ifelse(lleidasc$mundissec %in% c("2512070502", "25120704001", "25120703003", "25120706001", "25120706002", "25120701003", "25120701001", "25120701009", "2512071012", "25120701008", "25120701011", "25120706017", "25120701007", "25120701011", "25120701001", "25120701012", "25120701008", "25120701013", "25120701006", "25120709002", "25120701014", "25120701004", "25120705002"), "blau",
+ifelse(lleidasc$mundissec %in% c("25120704014", "25120703005", "25120703004", "25120703008", "25120703007", "25120703007", "25120703006", "25120704016", "25120704015", "25120704013", "25120704003", "25120703001", "25120703005", "25120702009", "25120708001", "25120702002", "25120702003", "25120702004", "25120702006", "25120702007", "25120702008"), "verd",
+ifelse(lleidasc$mundissec %in% c("25120702005", "25120707001", "25120707002", "25120707003", "25120707004", "25120707005", "25120707006", "25120707007"), "groc", "none")))))))
+```
+
+
+## Match and merge data
+
+Directory + Ownership
+```{r}
+library(dplyr)
+dirnatuEINF2C1718 <- inner_join(centresdirEINF2C1718, centresnatu, by = "Codi.centre")
+```
+
+Directory + Ownership + Maximum complexity
+```{r}
+dirnatumcEINF2C1718 <- left_join(dirnatuEINF2C1718, maxcomplexitat, by = "Codi.centre")
+```
+
+Directory + Ownership + Maximum complexity + Demand
+```{r}
+dirnatumcdemEINF2C1718 <- left_join(dirnatumcEINF2C1718, demandaEINF2C1718, by = "Codi.centre")
+```
+
+Directory + Ownership + Maximum complexity + Demand + Enrolment
+```{r}
+dirnatumcdemassigEINF2C1718 <- left_join(dirnatumcdemEINF2C1718, assignacionsEINF2C1718, by = "Codi.centre")
+```
+
+Remove extra columns and rename dataset
+```{r}
+schoolsP3 <- select(dirnatumcdemassigEINF2C1718, -Any, -Nom, -Nom.centre.x, -Municipi.x, -Nom.centre.y, -Municipi.y, -Districte, -Ensenyament, -Nivell)
+```
+
+
+## Analyse
+
+In all calculations I will leave rural schools (ZER) out, as they mix different levels and their suply works differently. Also, I'm focused on the schools sistem of cities and ZER are usually the only school in their village (which is inside a bigger municipality). 
+
+```{r}
+schoolsP3 <- schoolsP3 %>% filter(!(grepl("ZER ", Denominació.completa, ignore.case = TRUE)))
+```
+
+The school "Alba" is in the municipality of Corbins. As it is just in the border of Lleida, the administration counts it as a Lleida school and includes it in their school distribution. Many of its students are from Lleida. As it is part of the sistem, I want to classify it as an school in Lleida.
+
+```{r}
+schoolsP3$Nom.municipi <- ifelse(schoolsP3$Codi.centre=="25006501", "Lleida", schoolsP3$Nom.municipi)
+```
+
+#### Demand ratio
+
+The demand ratio is the division of applications between initial supply. It shows which schools had more demand in relation to the places they offered. 
+
+```{r}
+schoolsP3 <- mutate(schoolsP3, RatioDem = Solicituds / Places.inicial)
+```
+
+I want to find how many schools have poor, balanced or excess of demand. 
+
+```{r}
+library(dplyr)
+schoolsP3 %>% select(Nom.municipi, Denominació.completa, RatioDem) %>% group_by(Nom.municipi) %>% summarise(NSobredemanda=sum(RatioDem>1,na.rm=T), NDemandaOK=sum(between(RatioDem,0.75,1),na.rm=T), NDemandaFebre=sum(RatioDem<0.75,na.rm=T), PtgSobredemanda=((sum(RatioDem>1,na.rm=T)/n())*100), PtgDemandaOK=((sum(between(RatioDem,0.75,1),na.rm=T)/n())*100), PtgDemandaFeble=((sum(RatioDem<0.75,na.rm=T)/n())*100), Max=max(RatioDem,na.rm=TRUE), Min=min(RatioDem,na.rm=TRUE)) %>% filter(Nom.municipi=="Lleida")
+```
+
+And which is the school with more and with less demand.
+
+```{r}
+(filter(schoolsP3,Nom.municipi=="Lleida"))$Denominació.completa[which.min((filter(schoolsP3,Nom.municipi=="Lleida"))$RatioDem)]
+
+(filter(schoolsP3,Nom.municipi=="Lleida"))$Denominació.completa[which.max((filter(schoolsP3,Nom.municipi=="Lleida"))$RatioDem)]
+```
+
+Statistical analysis by municipality: calculate different summary descriptive statistics to compare municipalities
+
+```{r}
+municipisP3 <- schoolsP3 %>% group_by(Nom.municipi) %>% summarise(Num.schools=n(), Municipi.min=min(RatioDem,na.rm=TRUE), Municipi.max=max(RatioDem,na.rm=TRUE),  Municipi.mean=mean(RatioDem,na.rm=TRUE), Municipi.median=median(RatioDem,na.rm=TRUE), Municipi.var=var(RatioDem,na.rm=TRUE), Municipi.sd=sd(RatioDem,na.rm=TRUE), Municipi.IQR=IQR(RatioDem,na.rm=TRUE), Public.municipi=sum(Nom.natu=="Públic"), Concertat.municipi=sum(Nom.natu=="Concertat"), Privat.municipi=sum(Nom.natu=="Privat"), Ptg.public.municipi=((sum(Nom.natu=="Públic")/n())*100), Ptg.concertat.municipi=((sum(Nom.natu=="Concertat")/n())*100),  Ptg.privat.municipi=((sum(Nom.natu=="Privat")/n())*100), Sobredemanda.municipi=((sum(RatioDem>1,na.rm=T)/n())*100), DemandaOK.municipi=((sum(between(RatioDem,0.75,1),na.rm=T)/n())*100), DemandaFeble.municipi=((sum(RatioDem<0.75,na.rm=T)/n())*100))
+```
+
+For my story, the standard deviation of the demand ratio is relevant because it shows how spread demand is in each municipality and takes the number of schools into account, so it is comparable. 
+
+Add municipalities summary statistics data to schools data
+```{r}
+schoolsP3 <- left_join(schoolsP3, municipisP3, by="Nom.municipi")
+```
+
+Filter the top10 most populated cities (also the ones with more than 100,000 inhabitants)
+```{r}
+top10schoolsP3 <- filter(schoolsP3, Nom.municipi == "Barcelona" | Nom.municipi == "L'Hospitalet de Llobregat" | Nom.municipi == "Terrassa" | Nom.municipi == "Badalona" | Nom.municipi == "Sabadell" | Nom.municipi == "Lleida" | Nom.municipi == "Tarragona" | Nom.municipi == "Mataró" | Nom.municipi == "Santa Coloma de Gramenet" | Nom.municipi == "Reus")
+```
+
+```{r}
+top10municipisP3 <- filter(municipisP3, Nom.municipi == "Barcelona" | Nom.municipi == "L'Hospitalet de Llobregat" | Nom.municipi == "Terrassa" | Nom.municipi == "Badalona" | Nom.municipi == "Sabadell" | Nom.municipi == "Lleida" | Nom.municipi == "Tarragona" | Nom.municipi == "Mataró" | Nom.municipi == "Santa Coloma de Gramenet" | Nom.municipi == "Reus")
+```
+
+Lleida is the second with a highest standard deviation. I have the first lead: "Lleida is the second city with more than a 100,000 inhabitants were the demand is more different between its schools"
+
+####Vacancies
+
+Vacancies left in each municipality: Calculate % of applications and enrolment in relation to initial supply. Which % is more relevant?
+
+```{r}
+vacantsmuni <- schoolsP3 %>% filter(!is.na(Places.inicial)) %>% filter(!is.na(Solicituds)) %>% group_by(Nom.municipi) %>% summarise(ptgvacantssol=((sum(Places.inicial)-sum(Solicituds))*100)/sum(Places.inicial), Num.schools=n(), ptgvacantsassig=((sum(Places.inicial)-sum(Assignacions))*100)/sum(Places.inicial), nplacesinicial=sum(Places.inicial), nassignacions=sum(Assignacions), nsolicituds=sum(Solicituds), nvacantsassig=sum(Places.inicial)-sum(Assignacions))
+vacantsmuni <- filter(vacantsmuni, Num.schools>1)
+```
+
+Enrolment/Initial supply is better as it shows the real final vacancies. 
+
+Filter cities with more than 400,000 inhabitants
+```{r}
+top40municipisP3 <- filter(municipisP3, Nom.municipi == "Barcelona" | Nom.municipi == "L'Hospitalet de Llobregat" | Nom.municipi == "Terrassa" | Nom.municipi == "Badalona" | Nom.municipi == "Sabadell" | Nom.municipi == "Lleida" | Nom.municipi == "Tarragona" | Nom.municipi == "Mataró" | Nom.municipi == "Santa Coloma de Gramenet" | Nom.municipi == "Reus" | Nom.municipi == "Girona" | Nom.municipi == "Sant Cugat del Vallès" | Nom.municipi == "Cornellà de Llobregat" | Nom.municipi == "Sant Boi de Llobregat" | Nom.municipi == "Rubí" | Nom.municipi == "Manresa" | Nom.municipi == "Vilanova i la Geltrú" | Nom.municipi == "Viladecans" | Nom.municipi == "Castelldefels" | Nom.municipi == "El Prat de Llobregat" | Nom.municipi == "Granollers" | Nom.municipi == "Cerdanyola del Vallès" | Nom.municipi == "Mollet del Vallès" | Nom.municipi == "Gavà" | Nom.municipi == "Figueres" | Nom.municipi == "Esplugues de Llobregat" | Nom.municipi == "Sant Feliu de Llobregat" | Nom.municipi == "Vic")
+```
+
+Merge with vacancies %
+```{r}
+top40municipisP3 <- left_join(top40municipisP3, vacantsmuni, by="Nom.municipi")
+```
+
+I have a lead: "Lleida is the second city bigger than 40.000 inhabitants with a higher % of vacancies".
+
+See numbers for Lleida
+
+```{r}
+filter(top40municipisP3, Nom.municipi=="Lleida")
+```
+
+#### Vacancies per zone
+
+I need to manually classify the schools in each zone. I will do it with Excel where I can more easily manipulate each cell. I export the schols and import the classified ones:
+```{r}
+CodisLleida <- schools %>% filter(Nom.municipi=="Lleida") %>% select(Codi.centre, Denominació.completa)
+write.csv(CodisLleida, "CodisLleida.csv", fileEncoding = "UTF-8")
+```
+
+```{r}
+LleidaSchoolsZone <- read.csv("Escoles-x-zones-educatives-Lleida.csv", encoding = "UTF-8")
+colnames(LleidaSchoolsZone) <- c("Codi.centre", "Denominació.completa", "Zone")
+```
+
+Merge with the data from Lleida
+```{r}
+LleidaSchoolsZone$Codi.centre <- as.character(LleidaSchoolsZone$Codi.centre)
+LleidaSchoolsZone <- left_join(LleidaSchoolsZone, schoolsP3, by=c("Codi.centre", "Denominació.completa"))
+```
+
+Analysis per Zone
+```{r}
+zoneslleidaP32017 <- LleidaSchoolsZone %>% filter(!is.na(Places.inicial)) %>% filter(!is.na(Solicituds)) %>% group_by(Zone) %>% summarise(Num.schools=n(), Min=min(RatioDem,na.rm=TRUE), Max=max(RatioDem,na.rm=TRUE),  Mean=mean(RatioDem,na.rm=TRUE), Median=median(RatioDem,na.rm=TRUE), Var=var(RatioDem,na.rm=TRUE), Sd=sd(RatioDem,na.rm=TRUE), IQR=IQR(RatioDem,na.rm=TRUE), Public=sum(Nom.natu=="Públic"), Concertat=sum(Nom.natu=="Concertat"), Privat=sum(Nom.natu=="Privat"), Ptg.public=((sum(Nom.natu=="Públic")/n())*100), Ptg.concertat=((sum(Nom.natu=="Concertat")/n())*100),   Sobredemanda=((sum(RatioDem>1,na.rm=T)/n())*100), DemandaOK=((sum(between(RatioDem,0.75,1),na.rm=T)/n())*100), DemandaFeble=((sum(RatioDem<0.75,na.rm=T)/n())*100), ptgvacantssol=((sum(Places.inicial)-sum(Solicituds))*100)/sum(Places.inicial), Num.schools=n(), ptgvacantsassig=((sum(Places.inicial)-sum(Assignacions))*100)/sum(Places.inicial), placesinici=sum(Places.inicial), assignacions=sum(Assignacions), solicituds=sum(Solicituds))
+```
+Vacancies range from 3% in Green zone to 20% in Blue zone.
+
+#### New variable: children living in each zone
+
+While working on the story, I realised it would be interesting to compare if initial supply and enrolment are adjusted to the children that live in each zone. I could show that the problem comes from family movement and/or the administration favouring this movement.
+
+I imported the data for children per electoral ward that where 2 years old at the beggining of 2017, so they were the ones starting school (P3) in 2017/18. The data comes from the Statistical Institute of Catalonia (IdesCat): http://www.idescat.cat/pub/?geo=sec%3A2512001001&id=pmh&n=1180&fil=3&col=3#Plegable=geo
+But every electoral ward is in a different page, so I had to scrape it.
+
+```{r}
+nenslleidaP32017 <- read.csv("habitantsP32017.csv")
+nenslleidaP32017$SC <- as.character(nenslleidaP32017$SC)
+colnames(nenslleidaP32017)[1] <- "mundissec"
+```
+
+```{r}
+#Ids don't match, add a 0 in the middle
+library(stringr)
+nenslleidaP32017$mundissec <- paste("2512070", str_sub(nenslleidaP32017$mundissec, -4,-1), sep="")
+```
+
+I merge it with the classified electoral ward from the zonification dataset
+```{r}
+nenslleidaP32017 <- full_join(lleidasc, nenslleidaP32017, by="mundissec")
+
+#correct zones
+nenslleidaP32017$areainfluencia <- if_else(nenslleidaP32017$mundissec=="25120708003", "lila", nenslleidaP32017$areainfluencia)
+nenslleidaP32017$areainfluencia <- if_else(nenslleidaP32017$areainfluencia=="lilaSeca", "lila", nenslleidaP32017$areainfluencia)
+nenslleidaP32017 <- filter(nenslleidaP32017, !areainfluencia=="none")
+```
+
+Sum number of P3 age children per zone
+```{r}
+nenszoneslleidaP32017 <- nenslleidaP32017 %>% group_by(areainfluencia) %>% summarise(NensZona=sum(dosanys2017))
+colnames(nenszoneslleidaP32017)[1] <- "Zone"
+```
+
+```{r}
+#Change names of zone to merge
+zoneslleidaP32017$Zone <- ifelse(zoneslleidaP32017$Zone %in% c("Lila"), "lila", ifelse(zoneslleidaP32017$Zone %in% c("Rosa"), "rosa",
+ifelse(zoneslleidaP32017$Zone %in% c("Blau"), "blau", ifelse(zoneslleidaP32017$Zone %in% c("Groc"), "groc", ifelse(zoneslleidaP32017$Zone %in% c("Verd"), "verd", ifelse(zoneslleidaP32017$Zone %in% c("Taronja"), "taronja", "none"))))))
+```
+
+Merge the zones analysis with the number of P3 age children
+```{r}
+zoneslleidaP32017 <- full_join(zoneslleidaP32017, nenszoneslleidaP32017, by="Zone")
+```
+
+% of inhabitants enroled. What is higher? enrolment or inhabitants?
+```{r}
+zoneslleidaP32017 %>% mutate(ptginhab=(NensZona-assignacions)/assignacions)
+```
+
+#### CMC
+
+Centres classified as maximum compleity in Lleida
+
+```{r}
+LleidaSchoolsZone$Complexitat.max <- ifelse(is.na(LleidaSchoolsZone$Complexitat.max),"No","Sí")
+```
+
+Number and mean difference in demand
+```{r}
+LleidaSchoolsZone %>% group_by(Nom.natu, Complexitat.max) %>% summarise(Num=n(), Min=min(RatioDem,na.rm=TRUE), Max=max(RatioDem,na.rm=TRUE),  Mean=mean(RatioDem,na.rm=TRUE), Median=median(RatioDem,na.rm=TRUE))
+```
+
+#### Enrolment after period
+
+Include P3 enrolment after period in Lleida data
+```{r}
+library(dplyr)
+LleidaSchoolsZone <- left_join(LleidaSchoolsZone, foramatINF, by="Codi.centre")
+```
+
+```{r}
+#clean extra columns
+LleidaSchoolsZone <- select(LleidaSchoolsZone, -Nom.centre.y, -Nom.municipi.y, -Naturalesa, -Codi.ensenyament, -Nivell, -Nom.ensenyament)
+```
+
+```{r}
+#Add 0s
+LleidaSchoolsZone$Admissions.INF <- ifelse(is.na(LleidaSchoolsZone$Admissions.INF), 0, LleidaSchoolsZone$Admissions.INF)
+```
+
+How many enrolmed after period
+```{r}
+sum(LleidaSchoolsZone$Admissions.INF)
+```
+
+Per school: what I want to compare? It depends
+
+How many in relation to the children there are in the class?
+```{r}
+LleidaSchoolsZone <- mutate(LleidaSchoolsZone, Ptgadmissions = Admissions.INF/Assignacions)
+```
+This pergentage gets higher in schools with small numbers per class, those that had less demand.
+
+How many in relation to the initial supply?
+```{r}
+LleidaSchoolsZone <- mutate(LleidaSchoolsZone, PtgFMvsPI = Admissions.INF/Places.inicial)
+```
+This pergentage gets higher in schools with small reduced students per class ratio (CMC).
+
+How many in relation to the groups of P3 they have?
+```{r}
+LleidaSchoolsZone <- mutate(LleidaSchoolsZone, PtgFMvsGI = Admissions.INF/Grups.inicial)
+```
+I chose this one because it represents the number of a new student in a class.
+
+I'm going to visualise to see what it looks like in relation to demand and maximum complexity schools.
+
+```{r}
+#Lleida: enrolment after period x demand ratio (highlight CMC)
+library(ggplot2)
+
+ggplot(LleidaSchoolsZone,
+       aes(x=RatioDem,
+           y=PtgFMvsGI,
+           colour=Nom.natu,
+           shape=Complexitat.max)) +
+  geom_point(position = "jitter", alpha=.7, size=2)
+```
+
+Schools classified as CMC and with poor demanded recieve more students during the year.

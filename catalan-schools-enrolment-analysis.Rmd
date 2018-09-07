@@ -416,10 +416,10 @@ Schools classified as CMC and with poor demanded recieve more students during th
 Finally, I export the data I will visualise in another notebook (there is no need to do this if I want to continue the work in the same session)
 
 ```{r}
-write.csv(top10schoolsP3, "top10schoolsP3.csv", fileEncoding="UTF-8")
-write.csv(zoneslleidaP32017, "zoneslleidaP32017.csv", fileEncoding="UTF-8")
-write.csv(top40municipisP3, "top40municipisP3.csv", fileEncoding="UTF-8")
-write.csv(LleidaSchoolsZone, "LleidaSchoolsZone", fileEncoding="UTF-8")
-write.csv(schoolsP3, "schoolsP3.csv", fileEncoding="UTF-8")
+write.csv(top10schoolsP3, "top10schoolsP3.csv", fileEncoding="UTF-8", row.names = F)
+write.csv(zoneslleidaP32017, "zoneslleidaP32017.csv", fileEncoding="UTF-8", row.names = F)
+write.csv(top40municipisP3, "top40municipisP3.csv", fileEncoding="UTF-8", row.names = F)
+write.csv(LleidaSchoolsZone, "LleidaSchoolsZone.csv", fileEncoding="UTF-8", row.names = F)
+write.csv(schoolsP3, "schoolsP3.csv", fileEncoding="UTF-8", row.names = F)
 ```
 

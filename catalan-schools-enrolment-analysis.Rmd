@@ -233,7 +233,7 @@ top10municipisP3 <- filter(municipisP3, Nom.municipi == "Barcelona" | Nom.munici
 
 Lleida is the second with a highest standard deviation. I have the first lead: "Lleida is the second city with more than a 100,000 inhabitants were the demand is more different between its schools"
 
-####Vacancies
+#### Vacancies
 
 Vacancies left in each municipality: Calculate % of applications and enrolment in relation to initial supply. Which % is more relevant?
 
@@ -409,3 +409,17 @@ ggplot(LleidaSchoolsZone,
 ```
 
 Schools classified as CMC and with poor demanded recieve more students during the year.
+
+
+## Prepare data for visualisation
+
+Finally, I export the data I will visualise in another notebook (there is no need to do this if I want to continue the work in the same session)
+
+```{r}
+write.csv(top10schoolsP3, "top10schoolsP3.csv", fileEncoding="UTF-8")
+write.csv(zoneslleidaP32017, "zoneslleidaP32017.csv", fileEncoding="UTF-8")
+write.csv(top40municipisP3, "top40municipisP3.csv", fileEncoding="UTF-8")
+write.csv(LleidaSchoolsZone, "LleidaSchoolsZone", fileEncoding="UTF-8")
+write.csv(schoolsP3, "schoolsP3.csv", fileEncoding="UTF-8")
+```
+

@@ -15,7 +15,6 @@ var ycircle = function(d) { return y(+d.Applications); }
 
 // Set colours
 var colour = d3.scaleOrdinal()
-  .domain(["Públic", "Concertat"])
   .range(["#f7d345","#29B3C7"]);
 
 // Create the svg canvas in the "graph" div
@@ -171,6 +170,22 @@ d3.csv("d3municipis.csv", function(error, data) {
       .style("opacity", function(d, i) { if (i < 20)
          { return 1; } else { return 0.6; }
       });
+		
+	legendValues = d3.set(data.map( function(d) { return d.Ownership } ) ).values()
+
+      var legend = d3.select(".legend")
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom)
+                .attr("class", "legend-flex")
+                .selectAll(".legends")
+                .data(legendValues)
+                .enter()
+                .append("rect")
+                .attr("class", "legends")
+                .style("background-color", function (d) { return colour(d) })
+                .append('text')
+                .text(function (d, i) { return d })
+                .attr("class", "legend-text")		
 
 }
  	// Create initial graph

@@ -1,0 +1,55 @@
+body {
+  font-family: "Open Sans", sans-serif;
+}
+
+h2 {
+	font-family: "Open Sans", sans-serif;
+	font-size: 24px;
+	font-style: normal;
+	font-variant: normal;
+	font-weight: 300;
+	line-height: 27px;
+	text-align: left;
+	margin-bottom: 30px;
+}
+
+.note {
+  font-size: 12px;
+  text-align: right;
+  font-style: italic;
+}
+
+.container-text{
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+.container-big {
+  max-width: 600px;
+  max-height: 470px;
+  margin: auto;
+}
+
+.graph-svg-background {
+    background-color: #2C4854;
+}
+
+.axisBlue line{
+  stroke: #bad0d1;
+}
+
+.axisBlue path{
+  stroke: #bad0d1;
+}
+
+.axisBlue text{
+  fill: #bad0d1;
+}
+
+.annotation {
+  fill: #bad0d1;
+  font-size: 12px;
+}

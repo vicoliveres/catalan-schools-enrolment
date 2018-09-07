@@ -7,13 +7,13 @@ output: html_notebook
 
 #### Directory
 
-Directory of teaching centers with generic informatin and locations, downloaded from the Government of Catalonia open data portal: https://analisi.transparenciacatalunya.cat/en/Educaci-/Directori-de-centres-docents/e2ef-eiqj
+Directory of teaching centres with generic information and locations, downloaded from the Government of Catalonia open data portal: https://analisi.transparenciacatalunya.cat/en/Educaci-/Directori-de-centres-docents/e2ef-eiqj
 
 ```{r}
 centresdirectori <- read.csv("Dades_obertes_Catalunya/Directori_de_centres_docents.csv", fileEncoding = "UTF8", colClasses = "character")
 ```
 
-Clean white spaces in EINF2C column. This is the code for the compulsary stage of pre-schools (educació infantil de segon cicle).
+Clean white spaces in EINF2C column. This is the code for the compulsory stage of pre-schools (educació infantil de segon cicle).
 
 ```{r}
 library(stringr)
@@ -21,7 +21,7 @@ centresdirectori$EINF2C <- gsub('\\s+', '', centresdirectori$EINF2C)
 ```
 
 ```{r}
-#Filtering data for the schools that teached EINF2C in the last avaliable year
+#Filtering data for the schools that taught EINF2C in the last available year
 library(dplyr)
 centresdirEINF2C1718 <- filter(centresdirectori, EINF2C == "EINF2C")
 centresdirEINF2C1718 <- filter(centresdirEINF2C1718, Any == 2017)
@@ -33,7 +33,7 @@ centresdirEINF2C1718 <- select(centresdirEINF2C1718, 1:26)
 
 #### Ownership
 
-Ownership of schools, in relation also with who they receive funding from. Three caregories: public, charter and private. Downloaded from the schools map of Catalonia: http://mapaescolar.gencat.cat
+Ownership of schools, in relation also with who they receive funding from. Three categories: public, charter and private. Downloaded from the schools' map of Catalonia: http://mapaescolar.gencat.cat
 
 ```{r}
 library(readxl)
@@ -46,7 +46,7 @@ colnames(centresnatu) <- c("Codi.centre", "Nom", "Codi.natu", "Nom.natu")
 
 #### Demand
 
-Number of Zone applications per school, the first year of copulsary schooling.
+Number of Zone applications per school, the first year of compulsory schooling.
 Data received using the Transparency Law as a PDF and transformed with Tabula. 
 
 ```{r}
@@ -58,7 +58,7 @@ demandaEINF2C1718$Solicituds <- as.numeric(demandaEINF2C1718$Solicituds)
 
 #### Enrolment
 
-Initial supply of school vacants and final enrolment. Data downloaded from the Education Department website: http://ensenyament.gencat.cat/ca/departament/estadistiques/estadistiques-ensenyament/curs-actual/
+Initial supply of school vacancies and final enrolment. Data downloaded from the Education Department website: http://ensenyament.gencat.cat/ca/departament/estadistiques/estadistiques-ensenyament/curs-actual/
 
 ```{r}
 library(readxl)
@@ -85,7 +85,7 @@ maxcomplexitat <- mutate(maxcomplexitat, Complexitat.max = "Sí")
 
 #### Enrolment after period
 
-Number of students that enroled to P3 after the beggining of the course. Data received using the Transparency Law as a PDF and transformed with Tabula.
+Number of students that enrolled to P3 after the beginning of the course. Data received using the Transparency Law as a PDF and transformed with Tabula.
 
 ```{r}
 foramatINF <- read.csv2("Peticio_transparencia/tabula-Annex 2_Apart-I_Alumnes Infantil_escolaritzats_fora_periode_D-CLEAN.csv", encoding = "UTF-8")
@@ -121,7 +121,7 @@ Division of schooling areas in Lleida. They are named with colours as the zones 
 
 I need them to make my interactive map.
 
-I will approximate the limits of various electoral wards (the smaller area division in Spain) to fit the different schooling zones. 
+I will approximate the limits of various electoral wards (the smallest area division in Spain) to fit the different schooling zones. 
 
 Electoral wards of Lleida: I downloaded the shapefiles from the cartographic institute of Catalonia: http://www.icgc.cat/Administracio-i-empresa/Descarregues/Capes-de-geoinformacio/Seccions-censals
 Then I filtered it with Mapshaper and Carto and exported to a csv that I import here now:
@@ -174,7 +174,7 @@ schoolsP3 <- select(dirnatumcdemassigEINF2C1718, -Any, -Nom, -Nom.centre.x, -Mun
 
 ## Analyse
 
-In all calculations I will leave rural schools (ZER) out, as they mix different levels and their suply works differently. Also, I'm focused on the schools sistem of cities and ZER are usually the only school in their village (which is inside a bigger municipality). 
+In all calculations I will leave rural schools (ZER) out, as they mix different levels and their supply works differently. Also, I'm focused on the schools system of cities and ZER are usually the only school in their village (which is inside a bigger municipality). 
 
 ```{r}
 schoolsP3 <- schoolsP3 %>% filter(!(grepl("ZER ", Denominació.completa, ignore.case = TRUE)))
@@ -217,7 +217,7 @@ municipisP3 <- schoolsP3 %>% group_by(Nom.municipi) %>% summarise(Num.schools=n(
 
 For my story, the standard deviation of the demand ratio is relevant because it shows how spread demand is in each municipality and takes the number of schools into account, so it is comparable. 
 
-Add municipalities summary statistics data to schools data
+Add municipalities summary statistics data to schools' data
 ```{r}
 schoolsP3 <- left_join(schoolsP3, municipisP3, by="Nom.municipi")
 ```
@@ -231,7 +231,7 @@ top10schoolsP3 <- filter(schoolsP3, Nom.municipi == "Barcelona" | Nom.municipi =
 top10municipisP3 <- filter(municipisP3, Nom.municipi == "Barcelona" | Nom.municipi == "L'Hospitalet de Llobregat" | Nom.municipi == "Terrassa" | Nom.municipi == "Badalona" | Nom.municipi == "Sabadell" | Nom.municipi == "Lleida" | Nom.municipi == "Tarragona" | Nom.municipi == "Mataró" | Nom.municipi == "Santa Coloma de Gramenet" | Nom.municipi == "Reus")
 ```
 
-Lleida is the second with a highest standard deviation. I have the first lead: "Lleida is the second city with more than a 100,000 inhabitants were the demand is more different between its schools"
+Lleida is the second with a highest standard deviation. I have the first lead: "Lleida is the second city with more than 100,000 inhabitants were the demand is more different between its schools"
 
 #### Vacancies
 
@@ -264,7 +264,7 @@ filter(top40municipisP3, Nom.municipi=="Lleida")
 
 #### Vacancies per zone
 
-I need to manually classify the schools in each zone. I will do it with Excel where I can more easily manipulate each cell. I export the schols and import the classified ones:
+I need to manually classify the schools in each zone. I will do it with Excel where I can more easily manipulate each cell. I export the schools and import the classified ones:
 ```{r}
 CodisLleida <- schools %>% filter(Nom.municipi=="Lleida") %>% select(Codi.centre, Denominació.completa)
 write.csv(CodisLleida, "CodisLleida.csv", fileEncoding = "UTF-8")
@@ -340,7 +340,7 @@ zoneslleidaP32017 %>% mutate(ptginhab=(NensZona-assignacions)/assignacions)
 
 #### CMC
 
-Centres classified as maximum compleity in Lleida
+Centres classified as maximum complexity in Lleida
 
 ```{r}
 LleidaSchoolsZone$Complexitat.max <- ifelse(is.na(LleidaSchoolsZone$Complexitat.max),"No","Sí")
@@ -408,7 +408,7 @@ ggplot(LleidaSchoolsZone,
   geom_point(position = "jitter", alpha=.7, size=2)
 ```
 
-Schools classified as CMC and with poor demanded recieve more students during the year.
+Schools classified as CMC and with poor demanded receive more students during the year.
 
 
 ## Prepare data for visualisation

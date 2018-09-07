@@ -53,3 +53,22 @@ h2 {
   fill: #bad0d1;
   font-size: 12px;
 }
+
+.legend-text {
+  font-size: 12px;
+  margin: 5px;
+}
+
+.legend-flex {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+}
+
+.legends {
+	margin: 1.5px;
+}
+
+.legend {
+  background: #2C4854;
+}

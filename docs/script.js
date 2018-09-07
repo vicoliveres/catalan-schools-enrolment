@@ -1,4 +1,4 @@
-// Adaptation from https://bl.ocks.org/ProQuestionAsker/8382f70af7f4a7355827c6dc4ee8817d
+// Adaptation from https://bl.ocks.org/ProQuestionAsker/8382f70af7f4a7355827c6dc4ee8817d and Martin Chorley's (@martinjc) workshop in the European Data & Computational Journalism Conference 2017
 
 // Set the margins
 var margin = {top: 40, right: 40, bottom: 40, left: 80},
@@ -43,6 +43,7 @@ d3.csv("d3municipis.csv", function(error, data) {
       d.Vacancies = +d.Vacancies;
   });
 
+  // Nest the data by city/municipality
   var nest = d3.nest()
 	  .key(function(d){
 	    return d.Municipality;
@@ -146,7 +147,7 @@ d3.csv("d3municipis.csv", function(error, data) {
  	// Function to create the initial graph
  	var initialGraph = function(municipi){
 
- 		// Filter the data to include only fruit of interest
+ 		// Filter the data to include only the first municipality
  		var selectMunicipi = nest.filter(function(d){
                 return d.key == municipi;
               })
@@ -171,6 +172,7 @@ d3.csv("d3municipis.csv", function(error, data) {
          { return 1; } else { return 0.6; }
       });
 		
+	// Add a legend for the dots' colours
 	legendValues = d3.set(data.map( function(d) { return d.Ownership } ) ).values()
 
       var legend = d3.select(".legend")
@@ -188,18 +190,18 @@ d3.csv("d3municipis.csv", function(error, data) {
                 .attr("class", "legend-text")		
 
 }
- 	// Create initial graph
+ 	// Create initial graph with first municipality
  	initialGraph("Abrera")
 
  	// Update the data
  	var updateGraph = function(municipi){
 
- 		// Filter the data to include only fruit of interest
+ 		// Filter the data to include only the selected municipality
  		var selectMunicipi = nest.filter(function(d){
                 return d.key == municipi;
               })
 
- 		// Select all of the grouped elements and update the data
+ 		// Select all of the grouped/nested elements and update the data
 	    var selectMunicipiGroups = svg.selectAll(".municipiGroups")
 		    .data(selectMunicipi)
 
@@ -242,12 +244,12 @@ d3.csv("d3municipis.csv", function(error, data) {
  	// Run update function when dropdown selection changes
  	municipisMenu.on('change', function(){
 
- 		// Find which fruit was selected from the dropdown
+ 		// Find which municipality was selected from the dropdown
  		var selectedMunicipi = d3.select(this)
             .select("select")
             .property("value")
 
-        // Run update function with the selected fruit
+        // Run update function with the selected municipality
         updateGraph(selectedMunicipi)
     });
 });
